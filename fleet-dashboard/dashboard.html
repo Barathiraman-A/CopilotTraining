@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Monitoring Dashboard</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            grid-template-rows: 80px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #1e40af 0%, #7c3aed 100%);
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .header-stat {
+            text-align: center;
+        }
+
+        .header-stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .header-stat-label {
+            font-size: 0.8em;
+            color: #cbd5e1;
+            text-transform: uppercase;
+        }
+
+        .connection-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar {
+            background: #1e293b;
+            border-right: 1px solid #334155;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-section {
+            padding: 20px;
+            border-bottom: 1px solid #334155;
+        }
+
+        .sidebar-section h3 {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .filter-group {
+            margin-bottom: 15px;
+        }
+
+        .filter-group label {
+            display: block;
+            font-size: 0.85em;
+            color: #cbd5e1;
+            margin-bottom: 5px;
+        }
+
+        .filter-group select,
+        .filter-group input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-size: 0.9em;
+        }
+
+        .filter-group select:focus,
+        .filter-group input:focus {
+            outline: none;
+            border-color: #60a5fa;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .time-range-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .time-btn {
+            flex: 1;
+            padding: 8px 12px;
+            background: #334155;
+            border: none;
+            border-radius: 6px;
+            color: #e2e8f0;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.2s;
+        }
+
+        .time-btn:hover {
+            background: #475569;
+        }
+
+        .time-btn.active {
+            background: #2563eb;
+            font-weight: 600;
+        }
+
+        .vehicle-list {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .vehicle-item {
+            padding: 15px 20px;
+            border-bottom: 1px solid #334155;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .vehicle-item:hover {
+            background: #0f172a;
+        }
+
+        .vehicle-item.selected {
+            background: #1e40af;
+            border-left: 4px solid #60a5fa;
+        }
+
+        .vehicle-id {
+            font-weight: 600;
+            color: #60a5fa;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-moving { background: #10b981; }
+        .status-online { background: #3b82f6; }
+        .status-stopped { background: #f59e0b; }
+        .status-offline { background: #6b7280; }
+
+        .vehicle-details {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85em;
+            color: #cbd5e1;
+        }
+
+        .vehicle-detail {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .main-content {
+            background: #0f172a;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        .stats-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(30, 41, 59, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            min-width: 150px;
+        }
+
+        .stat-card-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #60a5fa;
+        }
+
+        .stat-card-label {
+            font-size: 0.8em;
+            color: #94a3b8;
+            margin-top: 5px;
+        }
+
+        .stat-card-trend {
+            font-size: 0.75em;
+            margin-top: 5px;
+        }
+
+        .trend-up { color: #10b981; }
+        .trend-down { color: #ef4444; }
+
+        .bottom-panel {
+            height: 250px;
+            background: #1e293b;
+            border-top: 1px solid #334155;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            height: 100%;
+        }
+
+        .chart-wrapper {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .chart-title {
+            font-size: 0.9em;
+            color: #94a3b8;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        canvas {
+            max-height: 150px;
+        }
+
+        .alert-badge {
+            background: #ef4444;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.75em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+
+        .no-vehicles {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 200px;
+            color: #64748b;
+        }
+
+        .leaflet-popup-content-wrapper {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .leaflet-popup-content {
+            margin: 15px;
+        }
+
+        .leaflet-popup-tip {
+            background: #1e293b;
+        }
+
+        .popup-vehicle-id {
+            font-size: 1.1em;
+            font-weight: 700;
+            color: #60a5fa;
+            margin-bottom: 10px;
+        }
+
+        .popup-detail {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 0.9em;
+            border-bottom: 1px solid #334155;
+        }
+
+        .popup-detail:last-child {
+            border-bottom: none;
+        }
+
+        .popup-label {
+            color: #94a3b8;
+        }
+
+        .popup-value {
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Header -->
+        <header class="header">
+            <h1>
+                <span>🚛</span>
+                Fleet Monitoring Dashboard
+            </h1>
+            <div class="header-stats">
+                <div class="header-stat">
+                    <div class="header-stat-value" id="totalVehicles">0</div>
+                    <div class="header-stat-label">Total Vehicles</div>
+                </div>
+                <div class="header-stat">
+                    <div class="header-stat-value" id="onlineVehicles">0</div>
+                    <div class="header-stat-label">Online</div>
+                </div>
+                <div class="header-stat">
+                    <div class="header-stat-value" id="movingVehicles">0</div>
+                    <div class="header-stat-label">Moving</div>
+                </div>
+            </div>
+            <div class="connection-indicator">
+                <div class="connection-dot"></div>
+                <span>Real-time Updates</span>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3>🔍 Filters</h3>
+                <div class="filter-group">
+                    <label for="statusFilter">Status</label>
+                    <select id="statusFilter">
+                        <option value="all">All Vehicles</option>
+                        <option value="moving">Moving</option>
+                        <option value="online">Online</option>
+                        <option value="stopped">Stopped</option>
+                        <option value="offline">Offline</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="searchInput">Search by ID</label>
+                    <input type="text" id="searchInput" placeholder="e.g., VEH-001">
+                </div>
+                <div class="checkbox-group">
+                    <input type="checkbox" id="lowBatteryFilter">
+                    <label for="lowBatteryFilter">
+                        Low Battery Only (<span id="lowBatteryCount">0</span>)
+                    </label>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>📅 Time Range</h3>
+                <div class="time-range-buttons">
+                    <button class="time-btn active" data-range="1h">Last Hour</button>
+                    <button class="time-btn" data-range="24h">24 Hours</button>
+                    <button class="time-btn" data-range="7d">7 Days</button>
+                </div>
+            </div>
+
+            <div class="sidebar-section" style="flex: 1; padding: 0;">
+                <div style="padding: 20px; padding-bottom: 10px;">
+                    <h3>🚗 Vehicles (<span id="vehicleCount">0</span>)</h3>
+                </div>
+                <div class="vehicle-list" id="vehicleList">
+                    <!-- Vehicle items will be inserted here -->
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+                <div class="stats-overlay">
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="avgSpeed">0</div>
+                        <div class="stat-card-label">Avg Speed (km/h)</div>
+                        <div class="stat-card-trend trend-up" id="speedTrend">↑ 5%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="avgBattery">0%</div>
+                        <div class="stat-card-label">Avg Battery</div>
+                        <div class="stat-card-trend trend-down" id="batteryTrend">↓ 2%</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card-value" id="alertsCount">0</div>
+                        <div class="stat-card-label">Active Alerts</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-panel">
+                <div class="charts-container">
+                    <div class="chart-wrapper">
+                        <div class="chart-title">Speed Distribution</div>
+                        <canvas id="speedChart"></canvas>
+                    </div>
+                    <div class="chart-wrapper">
+                        <div class="chart-title">Battery Levels</div>
+                        <canvas id="batteryChart"></canvas>
+                    </div>
+                    <div class="chart-wrapper">
+                        <div class="chart-title">Vehicle Status</div>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Fleet Data Management
+        class FleetDashboard {
+            constructor() {
+                this.vehicles = new Map();
+                this.markers = new Map();
+                this.selectedVehicle = null;
+                this.filters = {
+                    status: 'all',
+                    search: '',
+                    lowBattery: false
+                };
+                
+                this.initMap();
+                this.initCharts();
+                this.initEventListeners();
+                this.generateMockVehicles();
+                this.startSimulation();
+            }
+
+            initMap() {
+                this.map = L.map('map').setView([11.0168, 76.9558], 11);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(this.map);
+
+                this.markerCluster = L.markerClusterGroup({
+                    maxClusterRadius: 50,
+                    spiderfyOnMaxZoom: true,
+                    showCoverageOnHover: false
+                });
+                
+                this.map.addLayer(this.markerCluster);
+            }
+
+            initCharts() {
+                const chartConfig = {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        },
+                        x: { 
+                            ticks: { color: '#94a3b8' },
+                            grid: { color: '#334155' }
+                        }
+                    }
+                };
+
+                this.speedChart = new Chart(document.getElementById('speedChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['0-20', '20-40', '40-60', '60-80', '80+'],
+                        datasets: [{
+                            label: 'Vehicles',
+                            data: [0, 0, 0, 0, 0],
+                            backgroundColor: '#60a5fa'
+                        }]
+                    },
+                    options: chartConfig
+                });
+
+                this.batteryChart = new Chart(document.getElementById('batteryChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['0-20%', '20-40%', '40-60%', '60-80%', '80-100%'],
+                        datasets: [{
+                            label: 'Vehicles',
+                            data: [0, 0, 0, 0, 0],
+                            backgroundColor: '#10b981'
+                        }]
+                    },
+                    options: chartConfig
+                });
+
+                this.statusChart = new Chart(document.getElementById('statusChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Moving', 'Online', 'Stopped', 'Offline'],
+                        datasets: [{
+                            data: [0, 0, 0, 0],
+                            backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#6b7280']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { color: '#94a3b8', font: { size: 10 } }
+                            }
+                        }
+                    }
+                });
+            }
+
+            initEventListeners() {
+                document.getElementById('statusFilter').addEventListener('change', (e) => {
+                    this.filters.status = e.target.value;
+                    this.updateDisplay();
+                });
+
+                document.getElementById('searchInput').addEventListener('input', (e) => {
+                    this.filters.search = e.target.value.toLowerCase();
+                    this.updateDisplay();
+                });
+
+                document.getElementById('lowBatteryFilter').addEventListener('change', (e) => {
+                    this.filters.lowBattery = e.target.checked;
+                    this.updateDisplay();
+                });
+
+                document.querySelectorAll('.time-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+                        e.target.classList.add('active');
+                    });
+                });
+            }
+
+            generateMockVehicles() {
+                const statuses = ['moving', 'online', 'stopped', 'offline'];
+                const baseLocations = [
+                    [11.0168, 76.9558], // Coimbatore
+                    [13.0827, 80.2707], // Chennai
+                    [12.9716, 77.5946], // Bangalore
+                    [11.1271, 78.6569], // Salem
+                ];
+
+                const owners = ['Raj Transport', 'Kumar Logistics', 'Singh Freight', 'Patel Carriers', 'Reddy Express'];
+                const cities = ['Coimbatore', 'Chennai', 'Bangalore', 'Salem'];
+                
+                for (let i = 1; i <= 50; i++) {
+                    const baseLocationIndex = Math.floor(Math.random() * baseLocations.length);
+                    const baseLocation = baseLocations[baseLocationIndex];
+                    const vehicle = {
+                        id: `VEH-${String(i).padStart(3, '0')}`,
+                        owner: owners[Math.floor(Math.random() * owners.length)],
+                        startLocation: cities[baseLocationIndex],
+                        speed: Math.random() * 100,
+                        battery: Math.random() * 100,
+                        latitude: baseLocation[0] + (Math.random() - 0.5) * 0.3,
+                        longitude: baseLocation[1] + (Math.random() - 0.5) * 0.3,
+                        altitude: Math.floor(Math.random() * 500),
+                        satellites: Math.floor(Math.random() * 12) + 4,
+                        status: statuses[Math.floor(Math.random() * statuses.length)],
+                        lastUpdate: Date.now()
+                    };
+                    
+                    this.vehicles.set(vehicle.id, vehicle);
+                    this.createMarker(vehicle);
+                }
+
+                this.updateDisplay();
+            }
+
+            createMarker(vehicle) {
+                const icon = this.getVehicleIcon(vehicle.status);
+                const marker = L.marker([vehicle.latitude, vehicle.longitude], { icon });
+                
+                marker.bindPopup(this.createPopupContent(vehicle));
+                marker.on('click', () => this.selectVehicle(vehicle.id));
+                
+                this.markerCluster.addLayer(marker);
+                this.markers.set(vehicle.id, marker);
+            }
+
+            getVehicleIcon(status) {
+                const colors = {
+                    moving: '#10b981',
+                    online: '#3b82f6',
+                    stopped: '#f59e0b',
+                    offline: '#6b7280'
+                };
+
+                return L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="
+                        width: 24px;
+                        height: 24px;
+                        background: ${colors[status]};
+                        border: 2px solid white;
+                        border-radius: 50%;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+                    "></div>`,
+                    iconSize: [24, 24],
+                    iconAnchor: [12, 12]
+                });
+            }
+
+            createPopupContent(vehicle) {
+                return `
+                    <div class="popup-vehicle-id">${vehicle.id}</div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Owner:</span>
+                        <span class="popup-value">${vehicle.owner}</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Start Location:</span>
+                        <span class="popup-value">${vehicle.startLocation}</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Speed:</span>
+                        <span class="popup-value">${vehicle.speed.toFixed(1)} km/h</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Battery:</span>
+                        <span class="popup-value">${vehicle.battery.toFixed(0)}%</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Altitude:</span>
+                        <span class="popup-value">${vehicle.altitude} m</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Satellites:</span>
+                        <span class="popup-value">${vehicle.satellites}</span>
+                    </div>
+                    <div class="popup-detail">
+                        <span class="popup-label">Status:</span>
+                        <span class="popup-value">${vehicle.status.toUpperCase()}</span>
+                    </div>
+                `;
+            }
+
+            updateVehicle(vehicleId) {
+                const vehicle = this.vehicles.get(vehicleId);
+                if (!vehicle) return;
+
+                // Simulate vehicle movement and data changes
+                if (vehicle.status === 'moving') {
+                    vehicle.latitude += (Math.random() - 0.5) * 0.001;
+                    vehicle.longitude += (Math.random() - 0.5) * 0.001;
+                    vehicle.speed = Math.max(20, Math.min(100, vehicle.speed + (Math.random() - 0.5) * 10));
+                } else if (vehicle.status === 'stopped') {
+                    vehicle.speed = 0;
+                }
+
+                vehicle.battery = Math.max(0, vehicle.battery - Math.random() * 0.1);
+                vehicle.lastUpdate = Date.now();
+
+                // Update marker position
+                const marker = this.markers.get(vehicleId);
+                if (marker) {
+                    marker.setLatLng([vehicle.latitude, vehicle.longitude]);
+                    marker.setIcon(this.getVehicleIcon(vehicle.status));
+                    marker.setPopupContent(this.createPopupContent(vehicle));
+                }
+            }
+
+            getFilteredVehicles() {
+                return Array.from(this.vehicles.values()).filter(vehicle => {
+                    if (this.filters.status !== 'all' && vehicle.status !== this.filters.status) {
+                        return false;
+                    }
+                    if (this.filters.search && !vehicle.id.toLowerCase().includes(this.filters.search)) {
+                        return false;
+                    }
+                    if (this.filters.lowBattery && vehicle.battery >= 20) {
+                        return false;
+                    }
+                    return true;
+                });
+            }
+
+            updateDisplay() {
+                const filtered = this.getFilteredVehicles();
+                const all = Array.from(this.vehicles.values());
+
+                // Update header stats
+                document.getElementById('totalVehicles').textContent = all.length;
+                document.getElementById('onlineVehicles').textContent = 
+                    all.filter(v => v.status === 'online' || v.status === 'moving').length;
+                document.getElementById('movingVehicles').textContent = 
+                    all.filter(v => v.status === 'moving').length;
+
+                // Update overlay stats
+                const avgSpeed = all.reduce((sum, v) => sum + v.speed, 0) / all.length;
+                const avgBattery = all.reduce((sum, v) => sum + v.battery, 0) / all.length;
+                const alerts = all.filter(v => v.battery < 20).length;
+
+                document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(1);
+                document.getElementById('avgBattery').textContent = avgBattery.toFixed(0) + '%';
+                document.getElementById('alertsCount').textContent = alerts;
+                document.getElementById('lowBatteryCount').textContent = alerts;
+
+                // Update vehicle list
+                this.updateVehicleList(filtered);
+
+                // Update charts
+                this.updateCharts(all);
+
+                // Update map markers visibility
+                this.updateMapMarkers(filtered);
+
+                document.getElementById('vehicleCount').textContent = filtered.length;
+            }
+
+            updateVehicleList(vehicles) {
+                const list = document.getElementById('vehicleList');
+                
+                if (vehicles.length === 0) {
+                    list.innerHTML = '<div class="no-vehicles">No vehicles found</div>';
+                    return;
+                }
+
+                list.innerHTML = vehicles.map(vehicle => `
+                    <div class="vehicle-item" data-id="${vehicle.id}">
+                        <div class="vehicle-id">
+                            <span class="status-dot status-${vehicle.status}"></span>
+                            ${vehicle.id}
+                            ${vehicle.battery < 20 ? '<span class="alert-badge">LOW</span>' : ''}
+                        </div>
+                        <div style="font-size: 0.75em; color: #94a3b8; margin-bottom: 6px;">
+                            <div>👤 ${vehicle.owner}</div>
+                            <div>📍 From: ${vehicle.startLocation}</div>
+                        </div>
+                        <div class="vehicle-details">
+                            <div class="vehicle-detail">
+                                <span>⚡</span>
+                                <span>${vehicle.speed.toFixed(0)} km/h</span>
+                            </div>
+                            <div class="vehicle-detail">
+                                <span>🔋</span>
+                                <span>${vehicle.battery.toFixed(0)}%</span>
+                            </div>
+                            <div class="vehicle-detail">
+                                <span>📡</span>
+                                <span>${vehicle.satellites} sats</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add click listeners
+                list.querySelectorAll('.vehicle-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        this.selectVehicle(item.dataset.id);
+                    });
+                });
+            }
+
+            selectVehicle(vehicleId) {
+                this.selectedVehicle = vehicleId;
+                const vehicle = this.vehicles.get(vehicleId);
+                
+                if (vehicle) {
+                    this.map.setView([vehicle.latitude, vehicle.longitude], 15);
+                    this.markers.get(vehicleId).openPopup();
+                    
+                    // Update UI
+                    document.querySelectorAll('.vehicle-item').forEach(item => {
+                        item.classList.toggle('selected', item.dataset.id === vehicleId);
+                    });
+                }
+            }
+
+            updateCharts(vehicles) {
+                // Speed distribution
+                const speedBuckets = [0, 0, 0, 0, 0];
+                vehicles.forEach(v => {
+                    const bucket = Math.min(4, Math.floor(v.speed / 20));
+                    speedBuckets[bucket]++;
+                });
+                this.speedChart.data.datasets[0].data = speedBuckets;
+                this.speedChart.update();
+
+                // Battery distribution
+                const batteryBuckets = [0, 0, 0, 0, 0];
+                vehicles.forEach(v => {
+                    const bucket = Math.min(4, Math.floor(v.battery / 20));
+                    batteryBuckets[bucket]++;
+                });
+                this.batteryChart.data.datasets[0].data = batteryBuckets;
+                this.batteryChart.update();
+
+                // Status distribution
+                const statusCounts = {
+                    moving: 0,
+                    online: 0,
+                    stopped: 0,
+                    offline: 0
+                };
+                vehicles.forEach(v => statusCounts[v.status]++);
+                this.statusChart.data.datasets[0].data = [
+                    statusCounts.moving,
+                    statusCounts.online,
+                    statusCounts.stopped,
+                    statusCounts.offline
+                ];
+                this.statusChart.update();
+            }
+
+            updateMapMarkers(filteredVehicles) {
+                const filteredIds = new Set(filteredVehicles.map(v => v.id));
+                
+                this.markers.forEach((marker, id) => {
+                    if (filteredIds.has(id)) {
+                        if (!this.markerCluster.hasLayer(marker)) {
+                            this.markerCluster.addLayer(marker);
+                        }
+                    } else {
+                        this.markerCluster.removeLayer(marker);
+                    }
+                });
+            }
+
+            startSimulation() {
+                // Update vehicles every 2 seconds
+                setInterval(() => {
+                    this.vehicles.forEach((vehicle, id) => {
+                        this.updateVehicle(id);
+                    });
+                    this.updateDisplay();
+                }, 2000);
+
+                // Occasionally change vehicle status
+                setInterval(() => {
+                    const statuses = ['moving', 'online', 'stopped'];
+                    const ids = Array.from(this.vehicles.keys());
+                    const randomId = ids[Math.floor(Math.random() * ids.length)];
+                    const vehicle = this.vehicles.get(randomId);
+                    if (vehicle && vehicle.status !== 'offline') {
+                        vehicle.status = statuses[Math.floor(Math.random() * statuses.length)];
+                    }
+                }, 10000);
+            }
+        }
+
+        // Initialize dashboard when page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            new FleetDashboard();
+        });
+    </script>
+</body>
+</html>
