@@ -1,3 +1,6 @@
+/* Leaflet map styles */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,9 +18,6 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
-
-/* Leaflet map styles */
-@import 'leaflet/dist/leaflet.css';
 
 .leaflet-container {
   height: 100%;
