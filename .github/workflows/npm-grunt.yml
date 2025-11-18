@@ -24,7 +24,7 @@ jobs:
 
     - name: Install dependencies
       working-directory: fleet-dashboard
-      run: npm install
+      run: npm ci
 
     - name: Build
       working-directory: fleet-dashboard
