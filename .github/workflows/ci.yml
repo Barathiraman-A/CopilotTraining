@@ -22,7 +22,7 @@ jobs:
       
       - name: Install dependencies
         working-directory: fleet-dashboard
-        run: npm install
+        run: npm install --legacy-peer-deps
       
       - name: Build application
         working-directory: fleet-dashboard
