@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { useEffect, useRef } from 'react';
 import { useFleetStore } from './stores/fleetStore';
 import { TelemetryWebSocketClient } from './api/websocketClient';
@@ -8,7 +9,6 @@ import FilterControls from './components/FilterControls';
 import ConnectionStatus from './components/ConnectionStatus';
 import ErrorBoundary from './components/ErrorBoundary';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/v1/telemetry/stream';
 const BATCH_INTERVAL = parseInt(import.meta.env.VITE_UPDATE_BATCH_INTERVAL || '100', 10);
 

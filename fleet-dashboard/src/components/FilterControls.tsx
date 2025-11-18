@@ -21,7 +21,7 @@ function FilterControls() {
         <select
           id="status-filter"
           value={filters.status}
-          onChange={(e) => setFilter('status', e.target.value)}
+          onChange={(e) => setFilter('status', e.target.value as VehicleStatus | 'all')}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-fleet-primary focus:border-fleet-primary"
           aria-label="Filter by vehicle status"
         >

@@ -84,7 +84,7 @@ const VehicleMarker = memo(({ vehicle }: VehicleMarkerProps) => {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Status:</span>
-              <span className="font-medium capitalize">{vehicle.status.replaceAll('_', ' ').toLowerCase()}</span>
+              <span className="font-medium capitalize">{vehicle.status.replace(/_/g, ' ').toLowerCase()}</span>
             </div>
           </div>
         </div>
